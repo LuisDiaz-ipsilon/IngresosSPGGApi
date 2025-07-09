@@ -17,7 +17,8 @@ CREATE TABLE dbo.Prediales (
     fecha_expedida   DATE           NOT NULL,
     fecha_limite     DATE           NOT NULL,
     fecha_pago       DATE           NULL,
-    pago_a_tiempo    BIT            NOT NULL DEFAULT 0
+    pago_a_tiempo    BIT            NOT NULL DEFAULT 0,
+    pagado           BIT            NOT NULL DEFAULT 0
 );
 
 CREATE TABLE dbo.TiposAuto (
@@ -51,5 +52,6 @@ CREATE TABLE dbo.Multas (
     fecha_expedida  DATE           NOT NULL,
     fecha_limite    DATE           NOT NULL,
     fecha_pago      DATE           NULL,
-    pago_a_tiempo   BIT            NOT NULL DEFAULT 0
+    pago_a_tiempo   BIT            NOT NULL DEFAULT 0,
+    pagado           BIT            NOT NULL DEFAULT 0
 );

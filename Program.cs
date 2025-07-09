@@ -8,6 +8,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("SqlServer");
 
+builder.Services.AddCors(o => o.AddPolicy("dev", p =>
+    p.WithOrigins("http://localhost:5173")
+     .AllowAnyHeader()
+     .AllowAnyMethod()
+));
+
 builder.Services.AddScoped<IDbConnection>(_ => new SqlConnection(connectionString));
     
 builder.Services.AddControllers();
@@ -25,6 +31,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("dev");
 
 app.UseAuthorization();
 
