@@ -25,10 +25,12 @@ public class MultasController : ControllerBase
             SELECT  m.id_multa,
                     p.placa,
                     tm.titulo       AS tipo_multa,
-                    m.monto,
+                    -- Monto: miles con coma y 2 decimales con punto
+                    FORMAT(m.monto, 'N2', 'en-US')                                       AS monto,
                     m.direccion,
-                    m.fecha_expedida,
-                    m.fecha_limite,
+                    -- Fechas: dd-MM-yyyy HH:mm:ss  (ej. 09-07-2025 15:42:00)
+                    FORMAT(CAST(m.fecha_expedida AS datetime), 'dd-MM-yyyy HH:mm:ss')    AS fecha_expedida,
+                    FORMAT(CAST(m.fecha_limite   AS datetime), 'dd-MM-yyyy HH:mm:ss')    AS fecha_limite,
                     m.latitude,
                     m.longitude
             FROM dbo.Multas        m
@@ -51,6 +53,9 @@ public class MultasController : ControllerBase
     [HttpPost("pagar")]
     public async Task<IActionResult> PagarMulta([FromBody] PagarMultaDto dto)
     {
+
+        _logger.LogInformation("Pago individual multa: "+dto.IdMulta+" Monto: "+dto.MontoPagar);
+
         const string selectSql = @"
             SELECT id_multa, monto, fecha_limite, fecha_pago
             FROM dbo.Multas
@@ -121,6 +126,9 @@ public class MultasController : ControllerBase
     [HttpPost("pagar-total")]
     public async Task<IActionResult> PagarTotal([FromBody] PagarTotalDto dto)
     {
+
+        _logger.LogInformation("Pago todas multa: "+dto.Placa+" Monto: "+dto.MontoPagar);
+
         const string sqlTotal = @"
             SELECT SUM(m.monto) AS TotalPendiente
             FROM   dbo.Multas m
