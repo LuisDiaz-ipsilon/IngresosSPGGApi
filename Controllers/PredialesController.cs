@@ -32,7 +32,7 @@ public class PredialesController : ControllerBase
         _configuration = configuration;
     }
 
-    // 1) PDF de los prediales pendientes para un domicilio
+    // PDF de los prediales pendientes para un domicilio
     [HttpGet("pdf/{domicilioId}")]
     public async Task<IActionResult> GetPdfByDomicilio(int domicilioId)
     {
@@ -74,15 +74,15 @@ public class PredialesController : ControllerBase
             ORDER BY fecha_expedida DESC;
         ";
         var prediales = (await _db.QueryAsync(sql, new { dto.DomicilioId })).ToList();
+        
         if (!prediales.Any())
             return NotFound($"No hay prediales pendientes para el domicilio {dto.DomicilioId}");
 
-        // 2.2 Genera PDF
+        // Genera PDF
         var pdfBytes = await GenerarPdfPrediales(prediales, dto.DomicilioId);
 
-        // 2.3 Enviar correo
         var montoTotal = prediales.Sum(x => (decimal)x.monto);
-        await EnviarCorreoConPdf(dto.Email, dto.DomicilioId, pdfBytes, montoTotal);
+        await EnviarCorreoConPdf("99diazluisfernand@gmail.com", dto.DomicilioId, pdfBytes, montoTotal);
 
         return Ok(new {
             mensaje   = "PDF enviado correctamente",
@@ -203,61 +203,8 @@ public class PredialesController : ControllerBase
     // --- El método GénérarPdf muy cercano al de multas ---
     private async Task<byte[]> GenerarPdfPrediales(List<dynamic> prediales, int domicilioId)
     {
-        // construye el documento
-        var doc = Document.Create(container =>
-        {
-            container.Page(page =>
-            {
-                page.Margin(20);
-                page.Size(PageSizes.A4);
-                page.PageColor(Colors.White);
-
-                // Header
-                page.Header()
-                    .Text($"Pago Predial SPGG — Domicilio {domicilioId}")
-                    .FontSize(18).Bold().FontColor(Colors.Blue.Darken2);
-
-                // Tabla
-                page.Content()
-                    .PaddingVertical(10)
-                    .Table(table =>
-                    {
-                        table.ColumnsDefinition(c =>
-                        {
-                            c.ConstantColumn(40);
-                            c.RelativeColumn();
-                            c.ConstantColumn(80);
-                            c.ConstantColumn(80);
-                        });
-
-                        table.Header(header =>
-                        {
-                            header.Cell().Text("#").SemiBold();
-                            header.Cell().Text("Monto").SemiBold();
-                            header.Cell().Text("Expedido").SemiBold();
-                            header.Cell().Text("Límite").SemiBold();
-                        });
-
-                        int i = 1;
-                        foreach (var p in prediales)
-                        {
-                            table.Cell().Text(i++.ToString());
-                            table.Cell().AlignRight().Text($"{(decimal)p.monto:N2}");
-                            table.Cell().Text(((DateTime)p.fecha_expedida).ToString("dd/MM/yyyy"));
-                            table.Cell().Text(((DateTime)p.fecha_limite).ToString("dd/MM/yyyy"));
-                        }
-                    });
-
-                // Footer: total
-                page.Footer()
-                    .AlignRight()
-                    .Text($"Total a pagar: {prediales.Sum(x => (decimal)x.monto):N2}")
-                    .FontSize(14).Bold();
-            });
-        });
-
-        // genera el PDF
-        return await Task.FromResult(doc.GeneratePdf());
+        var doc = new PredialesPdf { DomicilioId = domicilioId, Prediales = prediales};
+        return doc.GeneratePdf();
     }
 
     // Reusa tu helper de correo
@@ -271,25 +218,48 @@ public class PredialesController : ControllerBase
         var pass = smtp["Password"]!;
         var from = smtp["FromEmail"]!;
 
+        _logger.LogInformation("SMTP Config → {Host}:{Port}, SSL={SSL}, User={User}", host, port, ssl, user);
+
         using var client = new SmtpClient(host, port)
         {
             Credentials = new NetworkCredential(user, pass),
             EnableSsl   = ssl
         };
 
-        var msg = new MailMessage
+        var mailMessage = new MailMessage
         {
             From       = new MailAddress(from, "Predial SPGG"),
             Subject    = $"Predial SPGG - Domicilio {domicilioId}",
-            Body       = $"Adjunto el estado de cuenta. Total: {montoTotal:N2}",
-            IsBodyHtml = false
+            Body       = CrearCuerpoCorreo(domicilioId, montoTotal),
+            IsBodyHtml = true
         };
-        msg.To.Add(email);
-        msg.Attachments.Add(new Attachment(new MemoryStream(pdfBytes),
+        mailMessage.To.Add(email);
+        mailMessage.Attachments.Add(new Attachment(new MemoryStream(pdfBytes),
                                             $"Predial_{domicilioId}_{DateTime.Now:yyyyMMdd}.pdf",
                                             "application/pdf"));
 
-        await client.SendMailAsync(msg);
+        await client.SendMailAsync(mailMessage);
+    }
+
+    private string CrearCuerpoCorreo(int domicilio, decimal montoTotal)
+    {
+        return $@"
+            <html>
+            <body style='font-family: Arial, sans-serif;'>
+                <h2>Vivienda SPGG Predial - Domicilio {domicilio}</h2>
+                <p>Estimado ciudadano</p>
+                <p>Estado de cuenta de Prediales pendientes <strong>{domicilio}</strong>.</p>
+                <p><strong>Monto Total a Pagar: ${montoTotal:N2}</strong></p>
+                <p>Para realizar el pago, puede utilizar cualquiera de los metodos mostrados en el documento adjunto.</p>
+                <br>
+                <p>Atte; <br>
+                Vivienda SPGG</p>
+                <hr>
+                <p style='font-size: 12px; color: #666;'>
+                Este es un mensaje automatico, por favor no responda a este correo.
+                </p>
+            </body>
+            </html>";
     }
 }
 
