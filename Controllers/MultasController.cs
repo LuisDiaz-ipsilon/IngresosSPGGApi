@@ -1,6 +1,11 @@
 using System.Data;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
+using QuestPDF.Fluent;
+using System.Text;  
+using System.Net;
+using System.Net.Mail;   
+using QuestPDF.Infrastructure;
 
 namespace IngresosSPGGApi.Controllers;
 
@@ -11,10 +16,117 @@ public class MultasController : ControllerBase
     private readonly IDbConnection _db;
     private readonly ILogger<MultasController> _logger;
 
-    public MultasController(IDbConnection db, ILogger<MultasController> logger)
+   private readonly IConfiguration _configuration;
+
+    public MultasController(IDbConnection db, ILogger<MultasController> logger, IConfiguration configuration)
     {
         _db = db;
         _logger = logger;
+        _configuration = configuration;
+    }
+
+    // Obtener PDF por placa para pagar multas
+    [HttpGet("pdf/{placa}")]
+    public async Task<IActionResult> GetPdfByPlaca(string placa)
+    {
+        try
+        {
+            // Consultar multas
+            const string sqlMultas = @"
+                SELECT  m.id_multa,
+                        p.placa,
+                        p.titular,
+                        tm.titulo       AS tipo_multa,
+                        m.monto,
+                        m.direccion,
+                        m.detalle,
+                        m.fecha_expedida,
+                        m.fecha_limite,
+                        m.latitude,
+                        m.longitude
+                FROM dbo.Multas        m
+                JOIN dbo.PlacasAutos   p  ON p.id_placa = m.id_placa
+                JOIN dbo.TiposMulta    tm ON tm.id_tipo_multa = m.id_tipo_multa
+                WHERE p.placa = @placa
+                AND m.pagado = 0
+                ORDER BY m.fecha_expedida DESC;
+            ";
+
+            var multas = await _db.QueryAsync(sqlMultas, new { placa });
+
+            if (!multas.Any())
+            {
+                return NotFound($"No se encontraron multas pendientes para la placa {placa}");
+            }
+
+            // Generar PDF 
+            var pdfBytes = await GenerarPdfMultas(multas.ToList(), placa);
+            
+            // Retornar PDF al navegador
+            return File(pdfBytes, "application/pdf", $"Multas_{placa}_{DateTime.Now:yyyyMMdd}.pdf");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al generar PDF para placa {Placa}", placa);
+            return StatusCode(500, "Error interno del servidor");
+        }
+    }
+
+    public record EnviarPdfDto(string Placa, string Email);
+
+    //Enviar un correo con el pdf de las multas de una placa
+    [HttpPost("enviar-pdf")]
+    public async Task<IActionResult> EnviarPdfPorCorreo([FromBody] EnviarPdfDto dto)
+    {
+        try
+        {
+            // Consultar multas
+            const string sqlMultas = @"
+                SELECT  m.id_multa,
+                        p.placa,
+                        p.titular,
+                        tm.titulo       AS tipo_multa,
+                        m.monto,
+                        m.direccion,
+                        m.detalle,
+                        m.fecha_expedida,
+                        m.fecha_limite,
+                        m.latitude,
+                        m.longitude
+                FROM dbo.Multas        m
+                JOIN dbo.PlacasAutos   p  ON p.id_placa = m.id_placa
+                JOIN dbo.TiposMulta    tm ON tm.id_tipo_multa = m.id_tipo_multa
+                WHERE p.placa = @Placa
+                AND m.pagado = 0
+                ORDER BY m.fecha_expedida DESC;
+            ";
+
+            var multas = await _db.QueryAsync(sqlMultas, new { dto.Placa });
+
+            if (!multas.Any())
+            {
+                return NotFound($"No se encontraron multas pendientes para la placa {dto.Placa}");
+            }
+
+            // Generar PDF
+            var pdfBytes = await GenerarPdfMultas(multas.ToList(), dto.Placa);
+            
+            // Enviar por correo
+            await EnviarCorreoConPdf(dto.Email, dto.Placa, pdfBytes, multas.Sum(m => m.monto));
+
+            return Ok(new { 
+                mensaje = "PDF enviado correctamente", 
+                //email = dto.Email, Hard code 
+                email = "99diazluisfernand@gmail.com",
+                placa = dto.Placa,
+                fecha_envio = DateTime.Now
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al enviar PDF por correo para placa {Placa}", dto.Placa);
+            return StatusCode(500, "Error al enviar correo");
+        }
     }
 
     //Obtener una lista de todas las multas
@@ -173,4 +285,138 @@ public class MultasController : ControllerBase
         });
     }
 
+
+    private async Task<byte[]> GenerarPdfMultas(List<dynamic> multas, string placa)
+    {
+        var doc = new MultasPdf { Placa = placa, Multas = multas };
+        return doc.GeneratePdf();  
+    }
+
+    private DataTable CrearDataTableMultas(List<dynamic> multas, string placa)
+    {
+        var dataTable = new DataTable("MultasData");
+        
+        // Definir columnas
+        dataTable.Columns.Add("id_multa", typeof(int));
+        dataTable.Columns.Add("placa", typeof(string));
+        dataTable.Columns.Add("titular", typeof(string));
+        dataTable.Columns.Add("tipo_multa", typeof(string));
+        dataTable.Columns.Add("monto", typeof(decimal));
+        dataTable.Columns.Add("direccion", typeof(string));
+        dataTable.Columns.Add("detalle", typeof(string));
+        dataTable.Columns.Add("fecha_expedida", typeof(DateTime));
+        dataTable.Columns.Add("fecha_limite", typeof(DateTime));
+        dataTable.Columns.Add("latitude", typeof(string));
+        dataTable.Columns.Add("longitude", typeof(string));
+        
+        // Agregar datos demo para pago en banco
+        dataTable.Columns.Add("banco_referencia", typeof(string));
+        dataTable.Columns.Add("banco_cuenta", typeof(string));
+        dataTable.Columns.Add("banco_clabe", typeof(string));
+        dataTable.Columns.Add("codigo_barras", typeof(string));
+
+        // Llenar datos
+        foreach (var multa in multas)
+        {
+            var row = dataTable.NewRow();
+            row["id_multa"] = multa.id_multa;
+            row["placa"] = multa.placa;
+            row["titular"] = multa.titular;
+            row["tipo_multa"] = multa.tipo_multa;
+            row["monto"] = multa.monto;
+            row["direccion"] = multa.direccion;
+            row["detalle"] = multa.detalle ?? "";
+            row["fecha_expedida"] = multa.fecha_expedida;
+            row["fecha_limite"] = multa.fecha_limite;
+            row["latitude"] = multa.latitude;
+            row["longitude"] = multa.longitude;
+            
+            // Datos demo para pago en banco
+            var random = new Random();
+            row["banco_referencia"] = $"REF{random.Next(100000, 999999)}";
+            row["banco_cuenta"] = "4152-3138-7891-0001";
+            row["banco_clabe"] = "014320415231387891";
+            row["codigo_barras"] = GenerarCodigoBarras(multa.id_multa, (decimal)multa.monto);
+            
+            dataTable.Rows.Add(row);
+        }
+
+        return dataTable;
+    }
+
+    private string GenerarCodigoBarras(int idMulta, decimal monto)
+    {
+        // Generar código de barras demo para pago en banco
+        var sb = new StringBuilder();
+        sb.Append("01"); // Tipo de servicio
+        sb.Append("014320"); // Código del banco
+        sb.Append(idMulta.ToString("D8")); // ID multa con 8 dígitos
+        sb.Append(((int)(monto * 100)).ToString("D10")); // Monto en centavos
+        sb.Append(DateTime.Now.ToString("yyyyMMdd")); // Fecha
+        
+        return sb.ToString();
+    }
+
+    private async Task<byte[]> ReadStreamAsync(Stream stream)
+    {
+        using (var memoryStream = new MemoryStream())
+        {
+            await stream.CopyToAsync(memoryStream);
+            return memoryStream.ToArray();
+        }
+    }
+
+    private async Task EnviarCorreoConPdf(string email, string placa, byte[] pdfBytes, decimal montoTotal)
+    {
+        var smtpConfig = _configuration.GetSection("SmtpConfig");
+        
+        var smtpClient = new SmtpClient(smtpConfig["Host"])
+        {
+            Port = int.Parse(smtpConfig["Port"]),
+            Credentials = new NetworkCredential(smtpConfig["Username"], smtpConfig["Password"]),
+            EnableSsl = bool.Parse(smtpConfig["EnableSsl"])
+        };
+
+        var mailMessage = new MailMessage
+        {
+            From = new MailAddress(smtpConfig["FromEmail"], "Sistema de Multas SPGG"),
+            Subject = $"Estado de Multas - Placa {placa}",
+            Body = CrearCuerpoCorreo(placa, montoTotal),
+            IsBodyHtml = true
+        };
+
+        mailMessage.To.Add(email);
+        
+        // Adjuntar PDF
+        var attachment = new Attachment(new MemoryStream(pdfBytes), $"Multas_{placa}_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf");
+        mailMessage.Attachments.Add(attachment);
+
+        await smtpClient.SendMailAsync(mailMessage);
+        
+        attachment.Dispose();
+        mailMessage.Dispose();
+        smtpClient.Dispose();
+    }
+
+    private string CrearCuerpoCorreo(string placa, decimal montoTotal)
+    {
+        return $@"
+            <html>
+            <body style='font-family: Arial, sans-serif;'>
+                <h2>Estado de Multas - Placa {placa}</h2>
+                <p>Estimado ciudadano</p>
+                <p>Estado de cuenta de las multas pendientes para el vehículo con placa <strong>{placa}</strong>.</p>
+                <p><strong>Monto Total a Pagar: ${montoTotal:N2}</strong></p>
+                <p>Para realizar el pago, puede utilizar cualquiera de los métodos mostrados en el documento adjunto.</p>
+                <br>
+                <p>Atentamente,<br>
+                Sistema de Multas SPGG<br>
+                Gobierno Municipal</p>
+                <hr>
+                <p style='font-size: 12px; color: #666;'>
+                Este es un mensaje automático, por favor no responda a este correo.
+                </p>
+            </body>
+            </html>";
+    }
 }

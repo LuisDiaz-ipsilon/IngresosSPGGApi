@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "QFOkcS9yjebTI59KNrYFMTmw3dzMTAdacnZkfROdZ0Trt33uLVsZYxJhf2lBgTzXvLQ45xnxx/i3q6XAIWRBaA==",
+  "dgSpecHash": "OLR4benpUpvNFdPrss7uE+U1C+zzkmJRZbgsfWC9dKEm7zUZj9voEcVoxZyjCLAHNJaQ35vtEoV2PKOo8TMynA==",
   "success": true,
   "projectFilePath": "/Users/luisdiaz/Documents/GitHub/IngresosSPGGApi/IngresosSPGGApi.csproj",
   "expectedPackageFiles": [
@@ -26,6 +26,7 @@
     "/Users/luisdiaz/.nuget/packages/microsoft.sqlserver.server/1.0.0/microsoft.sqlserver.server.1.0.0.nupkg.sha512",
     "/Users/luisdiaz/.nuget/packages/microsoft.win32.registry/5.0.0/microsoft.win32.registry.5.0.0.nupkg.sha512",
     "/Users/luisdiaz/.nuget/packages/microsoft.win32.systemevents/5.0.0/microsoft.win32.systemevents.5.0.0.nupkg.sha512",
+    "/Users/luisdiaz/.nuget/packages/questpdf/2024.3.0/questpdf.2024.3.0.nupkg.sha512",
     "/Users/luisdiaz/.nuget/packages/swashbuckle.aspnetcore/6.5.0/swashbuckle.aspnetcore.6.5.0.nupkg.sha512",
     "/Users/luisdiaz/.nuget/packages/swashbuckle.aspnetcore.swagger/6.5.0/swashbuckle.aspnetcore.swagger.6.5.0.nupkg.sha512",
     "/Users/luisdiaz/.nuget/packages/swashbuckle.aspnetcore.swaggergen/6.5.0/swashbuckle.aspnetcore.swaggergen.6.5.0.nupkg.sha512",
