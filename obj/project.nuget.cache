@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "OLR4benpUpvNFdPrss7uE+U1C+zzkmJRZbgsfWC9dKEm7zUZj9voEcVoxZyjCLAHNJaQ35vtEoV2PKOo8TMynA==",
+  "dgSpecHash": "qu9iPKGgy6sfyoIAOXQAQfCngXblAXLsRm3ej1IGDubGXFu/pACTdyp2RFvfNnSoNuyrxBYr0VFAAidYfO4sMw==",
   "success": true,
   "projectFilePath": "/Users/luisdiaz/Documents/GitHub/IngresosSPGGApi/IngresosSPGGApi.csproj",
   "expectedPackageFiles": [
@@ -66,7 +66,7 @@
       "code": "NU1603",
       "level": "Warning",
       "warningLevel": 1,
-      "message": "IngresosSPGGApi depende de Microsoft.Data.SqlClient (>= 4.8.5), pero no se encontró Microsoft.Data.SqlClient 4.8.5. Se resolvió una mejor coincidencia aproximada de Microsoft.Data.SqlClient 5.0.0.",
+      "message": "IngresosSPGGApi depends on Microsoft.Data.SqlClient (>= 4.8.5) but Microsoft.Data.SqlClient 4.8.5 was not found. An approximate best match of Microsoft.Data.SqlClient 5.0.0 was resolved.",
       "libraryId": "Microsoft.Data.SqlClient",
       "targetGraphs": [
         "net6.0"

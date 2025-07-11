@@ -296,7 +296,6 @@ public class MultasController : ControllerBase
     {
         var dataTable = new DataTable("MultasData");
         
-        // Definir columnas
         dataTable.Columns.Add("id_multa", typeof(int));
         dataTable.Columns.Add("placa", typeof(string));
         dataTable.Columns.Add("titular", typeof(string));
@@ -309,13 +308,11 @@ public class MultasController : ControllerBase
         dataTable.Columns.Add("latitude", typeof(string));
         dataTable.Columns.Add("longitude", typeof(string));
         
-        // Agregar datos demo para pago en banco
         dataTable.Columns.Add("banco_referencia", typeof(string));
         dataTable.Columns.Add("banco_cuenta", typeof(string));
         dataTable.Columns.Add("banco_clabe", typeof(string));
         dataTable.Columns.Add("codigo_barras", typeof(string));
 
-        // Llenar datos
         foreach (var multa in multas)
         {
             var row = dataTable.NewRow();
@@ -331,7 +328,6 @@ public class MultasController : ControllerBase
             row["latitude"] = multa.latitude;
             row["longitude"] = multa.longitude;
             
-            // Datos demo para pago en banco
             var random = new Random();
             row["banco_referencia"] = $"REF{random.Next(100000, 999999)}";
             row["banco_cuenta"] = "4152-3138-7891-0001";
@@ -346,13 +342,12 @@ public class MultasController : ControllerBase
 
     private string GenerarCodigoBarras(int idMulta, decimal monto)
     {
-        // Generar código de barras demo para pago en banco
         var sb = new StringBuilder();
-        sb.Append("01"); // Tipo de servicio
-        sb.Append("014320"); // Código del banco
-        sb.Append(idMulta.ToString("D8")); // ID multa con 8 dígitos
-        sb.Append(((int)(monto * 100)).ToString("D10")); // Monto en centavos
-        sb.Append(DateTime.Now.ToString("yyyyMMdd")); // Fecha
+        sb.Append("01"); 
+        sb.Append("014320"); 
+        sb.Append(idMulta.ToString("D8")); 
+        sb.Append(((int)(monto * 100)).ToString("D10")); 
+        sb.Append(DateTime.Now.ToString("yyyyMMdd")); 
         
         return sb.ToString();
     }
@@ -393,7 +388,6 @@ public class MultasController : ControllerBase
         };
         mailMessage.To.Add(email);
 
-        // Adjunta el PDF
         mailMessage.Attachments.Add(new Attachment(new MemoryStream(pdfBytes),
                                                 $"Multas_{placa}_{DateTime.Now:yyyyMMdd}.pdf",
                                                 "application/pdf"));
