@@ -78,6 +78,7 @@ public class MultasController : ControllerBase
     [HttpPost("enviar-pdf")]
     public async Task<IActionResult> EnviarPdfPorCorreo([FromBody] EnviarPdfDto dto)
     {
+        _logger.LogInformation("eNVIAR PAPEL 1");
         try
         {
             // Consultar multas
@@ -111,13 +112,12 @@ public class MultasController : ControllerBase
             // Generar PDF
             var pdfBytes = await GenerarPdfMultas(multas.ToList(), dto.Placa);
             
-            // Enviar por correo
-            await EnviarCorreoConPdf(dto.Email, dto.Placa, pdfBytes, multas.Sum(m => m.monto));
+            // Enviar por correo// Hard code el correo
+            await EnviarCorreoConPdf("99diazluisfernand@gmail.com", dto.Placa, pdfBytes, multas.Sum(m => (decimal)m.monto));
 
             return Ok(new { 
                 mensaje = "PDF enviado correctamente", 
-                //email = dto.Email, Hard code 
-                email = "99diazluisfernand@gmail.com",
+                email = dto.Email,
                 placa = dto.Placa,
                 fecha_envio = DateTime.Now
             });
@@ -368,34 +368,37 @@ public class MultasController : ControllerBase
 
     private async Task EnviarCorreoConPdf(string email, string placa, byte[] pdfBytes, decimal montoTotal)
     {
-        var smtpConfig = _configuration.GetSection("SmtpConfig");
-        
-        var smtpClient = new SmtpClient(smtpConfig["Host"])
+         var smtpConfig = _configuration.GetSection("SmtpConfig");
+        var host       = smtpConfig["Host"];
+        var port       = int.Parse(smtpConfig["Port"]!);
+        var enableSsl  = bool.Parse(smtpConfig["EnableSsl"]!);
+        var user       = smtpConfig["Username"];
+        var pass       = smtpConfig["Password"];
+        var fromEmail  = smtpConfig["FromEmail"];
+
+        _logger.LogInformation("SMTP Config → {Host}:{Port}, SSL={SSL}, User={User}", host, port, enableSsl, user);
+
+        using var smtpClient = new SmtpClient(host, port)
         {
-            Port = int.Parse(smtpConfig["Port"]),
-            Credentials = new NetworkCredential(smtpConfig["Username"], smtpConfig["Password"]),
-            EnableSsl = bool.Parse(smtpConfig["EnableSsl"])
+            Credentials = new NetworkCredential(user, pass),
+            EnableSsl   = enableSsl
         };
 
         var mailMessage = new MailMessage
         {
-            From = new MailAddress(smtpConfig["FromEmail"], "Sistema de Multas SPGG"),
-            Subject = $"Estado de Multas - Placa {placa}",
-            Body = CrearCuerpoCorreo(placa, montoTotal),
-            IsBodyHtml = true
+            From        = new MailAddress(fromEmail, "Movilidad y transito SPGG"),
+            Subject     = $"Multas Transito SPGG - Placa {placa}",
+            Body        = CrearCuerpoCorreo(placa, montoTotal),
+            IsBodyHtml  = true
         };
-
         mailMessage.To.Add(email);
-        
-        // Adjuntar PDF
-        var attachment = new Attachment(new MemoryStream(pdfBytes), $"Multas_{placa}_{DateTime.Now:yyyyMMdd}.pdf", "application/pdf");
-        mailMessage.Attachments.Add(attachment);
+
+        // Adjunta el PDF
+        mailMessage.Attachments.Add(new Attachment(new MemoryStream(pdfBytes),
+                                                $"Multas_{placa}_{DateTime.Now:yyyyMMdd}.pdf",
+                                                "application/pdf"));
 
         await smtpClient.SendMailAsync(mailMessage);
-        
-        attachment.Dispose();
-        mailMessage.Dispose();
-        smtpClient.Dispose();
     }
 
     private string CrearCuerpoCorreo(string placa, decimal montoTotal)
@@ -403,18 +406,17 @@ public class MultasController : ControllerBase
         return $@"
             <html>
             <body style='font-family: Arial, sans-serif;'>
-                <h2>Estado de Multas - Placa {placa}</h2>
+                <h2>multas de Transito SPGG - Placa {placa}</h2>
                 <p>Estimado ciudadano</p>
-                <p>Estado de cuenta de las multas pendientes para el vehículo con placa <strong>{placa}</strong>.</p>
+                <p>Estado de cuenta de las multas pendientes para el automovil con placa <strong>{placa}</strong>.</p>
                 <p><strong>Monto Total a Pagar: ${montoTotal:N2}</strong></p>
-                <p>Para realizar el pago, puede utilizar cualquiera de los métodos mostrados en el documento adjunto.</p>
+                <p>Para realizar el pago, puede utilizar cualquiera de los metodos mostrados en el documento adjunto.</p>
                 <br>
-                <p>Atentamente,<br>
-                Sistema de Multas SPGG<br>
-                Gobierno Municipal</p>
+                <p>Atte; <br>
+                Transito SPGG</p>
                 <hr>
                 <p style='font-size: 12px; color: #666;'>
-                Este es un mensaje automático, por favor no responda a este correo.
+                Este es un mensaje automatico, por favor no responda a este correo.
                 </p>
             </body>
             </html>";

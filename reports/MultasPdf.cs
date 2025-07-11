@@ -56,7 +56,7 @@ public class MultasPdf : IDocument
             // Footer con agradecimiento
             page.Footer()
                 .AlignCenter()
-                .Text("Cuida de los pequeños gastos; un pequeño agujero, hunde un barco\nGracias por su pago. Atentamente, SPGG.")
+                .Text("Cuida de los pequeños gastos; un pequeño agujero, hunde un barco.\nGracias por su pago. Atentamente, Luis Fernando Flores Diaz, Director de Economia. SPGG\n ")
                 .FontSize(12).Italic().FontColor(Colors.Grey.Darken1);
         });
     }
