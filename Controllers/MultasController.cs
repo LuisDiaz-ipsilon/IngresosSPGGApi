@@ -144,12 +144,12 @@ public class MultasController : ControllerBase
                     FORMAT(CAST(m.fecha_expedida AS datetime), 'dd-MM-yyyy HH:mm:ss')    AS fecha_expedida,
                     FORMAT(CAST(m.fecha_limite   AS datetime), 'dd-MM-yyyy HH:mm:ss')    AS fecha_limite,
                     m.latitude,
-                    m.longitude
+                    m.longitude,
+                    m.pagado
             FROM dbo.Multas        m
             JOIN dbo.PlacasAutos   p  ON p.id_placa = m.id_placa
             JOIN dbo.TiposMulta    tm ON tm.id_tipo_multa = m.id_tipo_multa
             WHERE p.placa = @placa
-            AND m.pagado = 0
             ORDER BY m.fecha_expedida DESC;
         ";
 

@@ -100,10 +100,10 @@ public class PredialesController : ControllerBase
             SELECT id_predial,
                     FORMAT(monto, 'N2','en-US') AS monto,
                     FORMAT(fecha_expedida,'dd-MM-yyyy') AS fecha_expedida,
-                    FORMAT(fecha_limite,  'dd-MM-yyyy') AS fecha_limite
+                    FORMAT(fecha_limite,  'dd-MM-yyyy') AS fecha_limite,
+                    pagado
             FROM dbo.Prediales
             WHERE id_domicilio = @domicilioId
-                AND pagado = 0
             ORDER BY fecha_expedida DESC;
         ";
         var list = await _db.QueryAsync(sql, new { domicilioId });
