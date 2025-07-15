@@ -170,6 +170,10 @@ public class PredialesController : ControllerBase
     [HttpPost("pagar-total")]
     public async Task<IActionResult> PagarTotalPredial([FromBody] PagarTotalPredialDto dto)
     {
+
+        if (_db.State != System.Data.ConnectionState.Open)
+        _db.Open();
+
         var sqlSum = @"
             SELECT SUM(monto) FROM dbo.Prediales
             WHERE id_domicilio = @DomicilioId
@@ -188,6 +192,7 @@ public class PredialesController : ControllerBase
             WHERE id_domicilio = @DomicilioId
                 AND pagado = 0;
         ";
+        
         using var tx = _db.BeginTransaction();
         var filas = await _db.ExecuteAsync(upd, new { dto.DomicilioId, Now = DateTime.UtcNow }, tx);
         tx.Commit();
